@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "0g": "^0.0.9",
+    "@types/node": "^18.13.0",
+    "ajv": "^8.12.0",
+    "commitizen": "^4.3.0",
+    "cz-conventional-changelog": "^3.3.0",
+    "dotenv": "^16.0.3",
+    "global": "^4.4.0",
+    "typescript": "^4.9.5",
+    "winston": "^3.8.2"
+  }
+}
