@@ -7,7 +7,7 @@ REQUEST_LIMIT_PER_HOUR=
 API_APP_COUNT=
 ```
 
-.env.42app
+.42app.env
 
 ```
 # 42 API applications uid
@@ -19,6 +19,7 @@ UID_5=
 UID_6=
 UID_7=
 UID_8=
+
 # 42 API applications secret
 SECRET_1=
 SECRET_2=
