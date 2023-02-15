@@ -1,7 +1,10 @@
 .env
 
 ```
-DELAY_PER_REQUEST=
+# at most 0.5 for student account
+DELAY_SEC_PER_REQUEST=
+
+# 1,200 for student account
 REQUEST_LIMIT_PER_HOUR=
 
 API_APP_COUNT=

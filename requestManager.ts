@@ -1,4 +1,5 @@
-import { TokenManager } from "./tokenManager";
+import { FtRequest } from "./request/FtRequest";
+import { TokenManager } from "./TokenManager";
 
 export class RequestManager {
   static readonly requestLimitPerHour = process.env.REQUEST_LIMIT_PER_HOUR;
@@ -8,5 +9,11 @@ export class RequestManager {
 
   constructor(tokenManager: TokenManager) {
     this.tokenManager = tokenManager;
+  }
+
+  public async sendRequest(request: FtRequest) {
+    try {
+      await request.getDataAndSaveToFile(await this.tokenManager.getToken());
+    } catch (error) {}
   }
 }

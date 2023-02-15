@@ -1,11 +1,26 @@
 import * as dotenv from "dotenv";
-import { TokenManager } from "./tokenManager";
+import * as winston from "winston";
+import { TokenManager } from "./TokenManager";
 
 dotenv.config({ path: "./env/.env" });
 dotenv.config({ path: "./env/.42app.env" });
 
-// console.log(process.env);
-// console.log(process.env[`UID_${0}`]);
+export const logger = winston.createLogger({
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.File({
+      filename: "info.log",
+      level: "info",
+    }),
+    new winston.transports.File({
+      filename: "error.log",
+      level: "error",
+    }),
+  ],
+});
 
 const func = async () => {
   const tokenManager = new TokenManager(0);
@@ -13,4 +28,8 @@ const func = async () => {
   console.log(await tokenManager.getToken());
 };
 
-func();
+async function main() {
+  func();
+}
+
+main();
