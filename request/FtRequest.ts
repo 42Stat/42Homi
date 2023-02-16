@@ -1,13 +1,15 @@
 export abstract class FtRequest {
+  protected readonly apiUrl = "https://api.intra.42.fr/v2/";
+
   abstract sendRequest(token: string): Promise<Response>;
-  abstract validateResponse(response: Response): Promise<void>;
+  abstract validate(response: Response): Promise<void>;
   abstract saveToFile(): Promise<void>;
   abstract saveToDB(): Promise<void>;
 
   public async getDataAndSaveToFile(token: string) {
     try {
       const response = await this.sendRequest(token);
-      this.validateResponse(response);
+      this.validate(response);
       this.saveToFile();
     } catch (error) {}
   }
@@ -15,7 +17,7 @@ export abstract class FtRequest {
   public async getDataAndSaveToDB(token: string) {
     try {
       const response = await this.sendRequest(token);
-      this.validateResponse(response);
+      this.validate(response);
       this.saveToDB();
     } catch (error) {}
   }

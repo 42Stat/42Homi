@@ -1,5 +1,7 @@
 import * as dotenv from "dotenv";
 import * as winston from "winston";
+import { FtUserRequest } from "./request/FtUserRequest";
+import { RequestManager } from "./requestManager";
 import { TokenManager } from "./TokenManager";
 
 dotenv.config({ path: "./env/.env" });
@@ -23,9 +25,12 @@ export const logger = winston.createLogger({
 });
 
 const func = async () => {
-  const tokenManager = new TokenManager(0);
-  console.log(await tokenManager.getToken());
-  console.log(await tokenManager.getToken());
+  // const tokenManager = new TokenManager(0);
+  // console.log(await tokenManager.getToken());
+  // console.log(await tokenManager.getToken());
+  const requestManager = new RequestManager(0);
+  const ftUserRequest = new FtUserRequest();
+  requestManager.sendRequest(ftUserRequest);
 };
 
 async function main() {

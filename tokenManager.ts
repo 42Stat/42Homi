@@ -1,6 +1,9 @@
 export class TokenManager {
   static readonly loginUrl: string = "https://api.intra.42.fr/oauth/token";
-  static readonly maxRetryCount: number = 3;
+  static readonly maxRetryCount: number = process.env
+    .MAX_RETRY_COUNT_PER_REQUEST
+    ? Number(process.env.MAX_RETRY_COUNT_PER_REQUEST)
+    : 3;
   private readonly id: number;
   private readonly uid: string;
   private readonly secret: string;
