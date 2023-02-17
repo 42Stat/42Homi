@@ -1,8 +1,13 @@
 import { FtRequest } from "./FtRequest";
 
 export class FtUserRequest extends FtRequest {
+  constructor(resource: number, queryString: string = "") {
+    super();
+    this.ftApiUrl += `users/${resource}`;
+  }
+
   async sendRequest(token: string): Promise<Response> {
-    const response = await fetch(this.apiUrl + "users/dha", {
+    const response = await fetch(this.ftApiUrl, {
       method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,

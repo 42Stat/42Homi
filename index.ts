@@ -1,8 +1,7 @@
 import * as dotenv from "dotenv";
 import * as winston from "winston";
 import { FtUserRequest } from "./request/FtUserRequest";
-import { RequestManager } from "./requestManager";
-import { TokenManager } from "./TokenManager";
+import { Requester } from "./Requester";
 
 dotenv.config({ path: "./env/.env" });
 dotenv.config({ path: "./env/.42app.env" });
@@ -28,7 +27,7 @@ const func = async () => {
   // const tokenManager = new TokenManager(0);
   // console.log(await tokenManager.getToken());
   // console.log(await tokenManager.getToken());
-  const requestManager = new RequestManager(0);
+  const requestManager = new Requester(0);
   const ftUserRequest = new FtUserRequest();
   requestManager.sendRequest(ftUserRequest);
 };

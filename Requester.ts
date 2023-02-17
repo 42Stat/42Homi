@@ -1,7 +1,7 @@
 import { FtRequest } from "./request/FtRequest";
 import { TokenManager } from "./TokenManager";
 
-export class RequestManager {
+export class Requester {
   static readonly requestLimitPerHour = process.env.REQUEST_LIMIT_PER_HOUR;
   static readonly maxRetryCount: number = process.env
     .MAX_RETRY_COUNT_PER_REQUEST
