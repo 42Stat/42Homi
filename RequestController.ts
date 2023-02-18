@@ -22,6 +22,11 @@ export type SortList = string[];
 
 export class RequestController {
   private readonly ftApiUrl = "https://api.intra.42.fr/v2/";
+  private readonly apiAppCount = Number(process.env.API_APP_COUNT);
+  private readonly requestCountPerLoop =
+    Number(process.env.API_APP_COUNT) *
+    Number(process.env.REQUEST_COUNT_PER_APP);
+
   private requesterList: Requester[];
 
   constructor() {
@@ -44,14 +49,14 @@ export class RequestController {
     if (sortList !== null && sortList.length > 0) {
       queryString += `sort=${sortList.join(",")}&`;
     }
-    queryString = queryString.slice(0, -1);
+    queryString += `page[size]=${process.env.PAGE_SIZE}&page[number]=`;
     return queryString;
   }
 
   private createRequest(
     resourseType: ResourceType,
     resource: number,
-    queryString: string
+    queryString: string | null
   ): FtRequest {
     switch (resourseType) {
       case RESOURCE_TYPE.USER:
@@ -63,8 +68,8 @@ export class RequestController {
 
   private createRequests(
     resourseType: ResourceType,
-    range: RangeType,
-    queryString: string
+    queryString: string | null = null,
+    range: RangeType = 1
   ) {
     const requestQueue: FtRequest[] = [];
     // TODO: Create request class
@@ -77,23 +82,61 @@ export class RequestController {
         );
       }
     } else {
-      if (range === 0) {
-        // Get all entities
-      } else {
-        // Get entities from range
+      // Get all entities
+      for (let idx = range; idx < range + this.requestCountPerLoop; idx++) {
+        requestQueue.push(this.createRequest(resourseType, idx, queryString));
       }
     }
     return requestQueue;
   }
 
   public async getOne(resourseType: ResourceType, resource: Url) {}
+
   public async getAll(
     resourseType: ResourceType,
-    range: RangeType = 0,
     filterMap: FilterMap | null = null,
-    sortList: SortList | null = null
+    sortList: SortList | null = null,
+    range: RangeType = 1
   ) {
     const queryString = this.getOptionQueryString(filterMap, sortList);
-    const requestQueue = [];
+    // TODO: Implement Queue
+    const requestQueue: FtRequest[] = [];
+    const retryQueue: FtRequest[] = [];
+
+    if (Array.isArray(range)) {
+      requestQueue.push(
+        ...this.createRequests(resourseType, queryString, range)
+      );
+    } else {
+      let page = range;
+      let isVisitedEndPage = false;
+      const isAllRequestDone = () => {
+        return (
+          isVisitedEndPage &&
+          requestQueue.length === 0 &&
+          retryQueue.length === 0
+        );
+      };
+      while (true) {
+        // 48개를 여기서 넣어주고, 계속 돈다.
+        requestQueue.push(
+          ...this.createRequests(resourseType, queryString, page)
+        );
+        while (requestQueue.length > 0) {
+          // 48개를 다 쓸 때까지 돈다. (apiAppCount개씩)
+          const requests = requestQueue.splice(0, this.apiAppCount);
+          const promises = [];
+          for (let idx = 0; idx < requests.length; idx += ) {
+            const request = requests[idx];
+            const requester = this.requesterList[idx];
+            promises.push(requester.sendRequest(request));
+          }
+          Promise.allSettled(promises).then((results) => {});
+        }
+
+        if (isAllRequestDone()) break;
+        page += this.requestCountPerLoop;
+      }
+    }
   }
 }
