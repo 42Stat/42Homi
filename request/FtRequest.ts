@@ -1,25 +1,30 @@
+import { Any } from "0g";
+
 export abstract class FtRequest {
   protected ftApiUrl = "https://api.intra.42.fr/v2/";
 
-  abstract sendRequest(token: string): Promise<Response>;
+  abstract sendRequest(token: string): Promise<any>;
   abstract validate(response: Response): Promise<void>;
   abstract saveToFile(): Promise<void>;
   abstract saveToDB(): Promise<void>;
 
   constructor() {}
 
-  public async getDataAndSaveToFile(token: string) {
+  public async getDataAndSaveToFile(token: string): Promise<FtRequest | void> {
     try {
-      const response = await this.sendRequest(token);
-      this.validate(response);
+      const data = await this.sendRequest(token);
+      console.log(data.id);
+      this.validate(data);
       this.saveToFile();
-    } catch (error) {}
+    } catch (error) {
+      return this;
+    }
   }
 
   public async getDataAndSaveToDB(token: string) {
     try {
-      const response = await this.sendRequest(token);
-      this.validate(response);
+      const data = await this.sendRequest(token);
+      this.validate(data);
       this.saveToDB();
     } catch (error) {}
   }

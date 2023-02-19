@@ -13,7 +13,7 @@ export class FtUserRequest extends FtRequest {
         Authorization: `Bearer ${token}`,
       },
     });
-    return response;
+    return await response.json();
   }
   async validate(response: Response): Promise<void> {}
   async saveToFile(): Promise<void> {}

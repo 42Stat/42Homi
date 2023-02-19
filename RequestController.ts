@@ -1,3 +1,4 @@
+import { collapseTextChangeRangesAcrossMultipleVersions } from "typescript";
 import { FtRequest } from "./request/FtRequest";
 import { FtUserRequest } from "./request/FtUserRequest";
 import { Requester } from "./Requester";
@@ -23,6 +24,12 @@ export type SortList = string[];
 export class RequestController {
   private readonly ftApiUrl = "https://api.intra.42.fr/v2/";
   private readonly apiAppCount = Number(process.env.API_APP_COUNT);
+  private readonly maxRetryCountPerRequest = Number(
+    process.env.MAX_RETRY_COUNT_PER_REQUEST
+  );
+  private readonly delaySecPerRequest = Number(
+    process.env.DELAY_SEC_PER_REQUEST
+  );
   private readonly requestCountPerLoop =
     Number(process.env.API_APP_COUNT) *
     Number(process.env.REQUEST_COUNT_PER_APP);
@@ -36,6 +43,8 @@ export class RequestController {
       this.requesterList.push(new Requester(idx));
     }
   }
+
+  private delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
   private getOptionQueryString(
     filterMap: FilterMap | null,
@@ -104,12 +113,39 @@ export class RequestController {
     const retryQueue: FtRequest[] = [];
 
     if (Array.isArray(range)) {
+      const promises = [];
       requestQueue.push(
         ...this.createRequests(resourseType, queryString, range)
       );
+      console.log(requestQueue);
+      while (requestQueue.length > 0) {
+        // 48개를 다 쓸 때까지 돈다. (apiAppCount개씩)
+        const requests = requestQueue.splice(0, this.apiAppCount);
+        for (const [index, requester] of this.requesterList.entries()) {
+          const request = requests[index];
+          if (request === undefined) break;
+          console.log(index);
+          promises.push(requester.sendRequest(request));
+        }
+        console.log(Date.now());
+        // FIXME: 1초가 멈춰야 함
+        await this.delay(this.delaySecPerRequest);
+        console.log(Date.now());
+      }
+      await Promise.allSettled(promises).then((results) => {
+        // TODO: 성공 및 실패 케이스 분기
+        for (const result of results) {
+          if (result.status === "fulfilled") {
+          } else if (result.status === "rejected") {
+            console.log("failed");
+            retryQueue.push();
+          }
+        }
+      });
     } else {
       let page = range;
       let isVisitedEndPage = false;
+
       const isAllRequestDone = () => {
         return (
           isVisitedEndPage &&
@@ -122,16 +158,37 @@ export class RequestController {
         requestQueue.push(
           ...this.createRequests(resourseType, queryString, page)
         );
+        const promises = [];
+        // TODO: 중복되는 코드 함수로 빼기(while문 내부가 아래 로직과 같음)
         while (requestQueue.length > 0) {
           // 48개를 다 쓸 때까지 돈다. (apiAppCount개씩)
           const requests = requestQueue.splice(0, this.apiAppCount);
-          const promises = [];
-          for (let idx = 0; idx < requests.length; idx += ) {
-            const request = requests[idx];
-            const requester = this.requesterList[idx];
+          for (const [index, requester] of this.requesterList.entries()) {
+            const request = requests[index];
+            if (request === undefined) break;
             promises.push(requester.sendRequest(request));
           }
-          Promise.allSettled(promises).then((results) => {});
+          await this.delay(this.delaySecPerRequest);
+        }
+        await Promise.allSettled(promises).then((results) => {
+          // TODO: 성공 및 실패 케이스 분기
+          for (const result of results) {
+            if (result.status === "fulfilled") {
+            } else if (result.status === "rejected") {
+              retryQueue.push();
+            }
+          }
+        });
+        for (let idx = 0; idx < this.maxRetryCountPerRequest; idx++) {
+          while (retryQueue.length > 0) {
+            const requests = retryQueue.splice(0, this.apiAppCount);
+            for (const [index, requester] of this.requesterList.entries()) {
+              const request = requests[index];
+              if (request === undefined) break;
+              promises.push(requester.sendRequest(request));
+            }
+          }
+          await Promise.allSettled(promises).then((results) => {});
         }
 
         if (isAllRequestDone()) break;
