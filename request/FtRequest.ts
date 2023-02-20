@@ -2,6 +2,7 @@ import { Any } from "0g";
 
 export abstract class FtRequest {
   protected ftApiUrl = "https://api.intra.42.fr/v2/";
+  protected retryCount = 0;
 
   abstract sendRequest(token: string): Promise<any>;
   abstract validate(response: Response): Promise<void>;
@@ -10,6 +11,10 @@ export abstract class FtRequest {
 
   constructor() {}
 
+  public getRetryCount(): number {
+    return this.retryCount;
+  }
+
   public async getDataAndSaveToFile(token: string): Promise<FtRequest | void> {
     try {
       const data = await this.sendRequest(token);
@@ -17,7 +22,8 @@ export abstract class FtRequest {
       this.validate(data);
       this.saveToFile();
     } catch (error) {
-      return this;
+      this.retryCount++;
+      throw this;
     }
   }
 

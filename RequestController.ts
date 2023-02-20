@@ -44,7 +44,9 @@ export class RequestController {
     }
   }
 
-  private delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
+  private delay(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
 
   private getOptionQueryString(
     filterMap: FilterMap | null,
@@ -82,7 +84,6 @@ export class RequestController {
   ) {
     const requestQueue: FtRequest[] = [];
     // TODO: Create request class
-
     if (Array.isArray(range)) {
       // Get specific entities
       for (const entity of range) {
@@ -99,6 +100,48 @@ export class RequestController {
     return requestQueue;
   }
 
+  private async sendRequestsLoop(
+    queue: FtRequest[],
+    promises: Promise<unknown>[]
+  ) {
+    let requestIndex = 0;
+    mainLoop: while (true) {
+      for (const requester of this.requesterList) {
+        console.log(requester);
+        const requestLimitPerSec = requester.getRequestLimitPerSec();
+        for (let index = 0; index < requestLimitPerSec; index++) {
+          const request = queue[requestIndex++];
+          if (request === undefined) break mainLoop;
+          console.log("req: " + Date.now());
+          promises.push(requester.sendRequest(request));
+        }
+      }
+      await this.delay(this.delaySecPerRequest * 1000);
+    }
+    queue.splice(0, queue.length);
+    return promises;
+  }
+
+  private async storeRejectedRequestsInRetryQueue(
+    promises: Promise<unknown>[],
+    queue: FtRequest[]
+  ) {
+    await Promise.allSettled(promises).then((results) => {
+      for (const result of results) {
+        console.log(result);
+        if (result.status === "rejected") {
+          const request = result.reason;
+          if (request.getRetryCount() < this.maxRetryCountPerRequest) {
+            queue.push(request);
+          } else {
+            // TODO: Logging failed request
+          }
+        }
+      }
+    });
+    promises.splice(0, promises.length);
+  }
+
   public async getOne(resourseType: ResourceType, resource: Url) {}
 
   public async getAll(
@@ -111,87 +154,39 @@ export class RequestController {
     // TODO: Implement Queue
     const requestQueue: FtRequest[] = [];
     const retryQueue: FtRequest[] = [];
+    const promises: Promise<unknown>[] = [];
+
+    const sendAllRequestsInQueue = async () => {
+      await this.sendRequestsLoop(requestQueue, promises);
+      await this.storeRejectedRequestsInRetryQueue(promises, retryQueue);
+
+      // Retry failed requests(MAX_RETRY_COUNT_PER_REQUEST is in .env)
+      while (retryQueue.length > 0) {
+        await this.sendRequestsLoop(retryQueue, promises);
+        await this.storeRejectedRequestsInRetryQueue(promises, retryQueue);
+      }
+    };
 
     if (Array.isArray(range)) {
-      const promises = [];
+      // When specific entities are provided
+      // Put all requests in queue
       requestQueue.push(
         ...this.createRequests(resourseType, queryString, range)
       );
-      console.log(requestQueue);
-      while (requestQueue.length > 0) {
-        // 48개를 다 쓸 때까지 돈다. (apiAppCount개씩)
-        const requests = requestQueue.splice(0, this.apiAppCount);
-        for (const [index, requester] of this.requesterList.entries()) {
-          const request = requests[index];
-          if (request === undefined) break;
-          console.log(index);
-          promises.push(requester.sendRequest(request));
-        }
-        console.log(Date.now());
-        // FIXME: 1초가 멈춰야 함
-        await this.delay(this.delaySecPerRequest);
-        console.log(Date.now());
-      }
-      await Promise.allSettled(promises).then((results) => {
-        // TODO: 성공 및 실패 케이스 분기
-        for (const result of results) {
-          if (result.status === "fulfilled") {
-          } else if (result.status === "rejected") {
-            console.log("failed");
-            retryQueue.push();
-          }
-        }
-      });
+      await sendAllRequestsInQueue();
     } else {
+      // When page is provided
       let page = range;
       let isVisitedEndPage = false;
 
-      const isAllRequestDone = () => {
-        return (
-          isVisitedEndPage &&
-          requestQueue.length === 0 &&
-          retryQueue.length === 0
-        );
-      };
       while (true) {
-        // 48개를 여기서 넣어주고, 계속 돈다.
+        // Put limited requests in queue(to find end page)
         requestQueue.push(
           ...this.createRequests(resourseType, queryString, page)
         );
-        const promises = [];
-        // TODO: 중복되는 코드 함수로 빼기(while문 내부가 아래 로직과 같음)
-        while (requestQueue.length > 0) {
-          // 48개를 다 쓸 때까지 돈다. (apiAppCount개씩)
-          const requests = requestQueue.splice(0, this.apiAppCount);
-          for (const [index, requester] of this.requesterList.entries()) {
-            const request = requests[index];
-            if (request === undefined) break;
-            promises.push(requester.sendRequest(request));
-          }
-          await this.delay(this.delaySecPerRequest);
-        }
-        await Promise.allSettled(promises).then((results) => {
-          // TODO: 성공 및 실패 케이스 분기
-          for (const result of results) {
-            if (result.status === "fulfilled") {
-            } else if (result.status === "rejected") {
-              retryQueue.push();
-            }
-          }
-        });
-        for (let idx = 0; idx < this.maxRetryCountPerRequest; idx++) {
-          while (retryQueue.length > 0) {
-            const requests = retryQueue.splice(0, this.apiAppCount);
-            for (const [index, requester] of this.requesterList.entries()) {
-              const request = requests[index];
-              if (request === undefined) break;
-              promises.push(requester.sendRequest(request));
-            }
-          }
-          await Promise.allSettled(promises).then((results) => {});
-        }
+        await sendAllRequestsInQueue();
 
-        if (isAllRequestDone()) break;
+        if (isVisitedEndPage) break;
         page += this.requestCountPerLoop;
       }
     }

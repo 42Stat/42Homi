@@ -38,7 +38,7 @@ const func = async () => {
 };
 
 async function main() {
-  func();
+  await func();
 }
 
 main();
