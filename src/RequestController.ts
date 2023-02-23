@@ -1,4 +1,6 @@
 import { collapseTextChangeRangesAcrossMultipleVersions } from "typescript";
+import { logger } from "../";
+import { FTCoalitionUserRequest } from "./request/FtCoalitionUserRequest";
 import { FtRequest } from "./request/FtRequest";
 import { FtUserRequest } from "./request/FtUserRequest";
 import { Requester } from "./Requester";
@@ -30,16 +32,16 @@ export class RequestController {
   private readonly delaySecPerRequest = Number(
     process.env.DELAY_SEC_PER_REQUEST
   );
-  private readonly requestCountPerLoop =
-    Number(process.env.API_APP_COUNT) *
-    Number(process.env.REQUEST_COUNT_PER_APP);
+  private readonly requestCountPerLoop = Number(
+    process.env.REQUEST_COUNT_PER_LOOP
+  );
 
   private requesterList: Requester[];
 
   constructor() {
     this.requesterList = [];
-    const appCount = Number(process.env.API_APP_COUNT);
-    for (let idx = 0; idx < appCount; idx++) {
+
+    for (let idx = 0; idx < this.apiAppCount; idx++) {
       this.requesterList.push(new Requester(idx));
     }
   }
@@ -68,7 +70,7 @@ export class RequestController {
     resourseType: ResourceType,
     resource: number,
     queryString: string | null
-  ): FtRequest {
+  ): FtRequest<any> {
     switch (resourseType) {
       case RESOURCE_TYPE.USER:
         return new FtUserRequest(resource);
@@ -82,7 +84,7 @@ export class RequestController {
     queryString: string | null = null,
     range: RangeType = 1
   ) {
-    const requestQueue: FtRequest[] = [];
+    const requestQueue: FtRequest<any>[] = [];
     // TODO: Create request class
     if (Array.isArray(range)) {
       // Get specific entities
@@ -101,13 +103,13 @@ export class RequestController {
   }
 
   private async sendRequestsLoop(
-    queue: FtRequest[],
+    queue: FtRequest<any>[],
     promises: Promise<unknown>[]
   ) {
     let requestIndex = 0;
     mainLoop: while (true) {
       for (const requester of this.requesterList) {
-        console.log(requester);
+        console.log(requester.getId());
         const requestLimitPerSec = requester.getRequestLimitPerSec();
         for (let index = 0; index < requestLimitPerSec; index++) {
           const request = queue[requestIndex++];
@@ -124,17 +126,19 @@ export class RequestController {
 
   private async storeRejectedRequestsInRetryQueue(
     promises: Promise<unknown>[],
-    queue: FtRequest[]
+    queue: FtRequest<any>[]
   ) {
     await Promise.allSettled(promises).then((results) => {
       for (const result of results) {
-        console.log(result);
+        // console.log(result);
         if (result.status === "rejected") {
           const request = result.reason;
           if (request.getRetryCount() < this.maxRetryCountPerRequest) {
             queue.push(request);
+            console.log("error", request);
           } else {
             // TODO: Logging failed request
+            logger.log("warn", request);
           }
         }
       }
@@ -148,12 +152,13 @@ export class RequestController {
     resourseType: ResourceType,
     filterMap: FilterMap | null = null,
     sortList: SortList | null = null,
-    range: RangeType = 1
+    range: RangeType = 1,
+    resource: string = ""
   ) {
     const queryString = this.getOptionQueryString(filterMap, sortList);
     // TODO: Implement Queue
-    const requestQueue: FtRequest[] = [];
-    const retryQueue: FtRequest[] = [];
+    const requestQueue: FtRequest<any>[] = [];
+    const retryQueue: FtRequest<any>[] = [];
     const promises: Promise<unknown>[] = [];
 
     const sendAllRequestsInQueue = async () => {

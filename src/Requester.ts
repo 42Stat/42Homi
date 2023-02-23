@@ -1,3 +1,4 @@
+import { logger } from "..";
 import { FtRequest } from "./request/FtRequest";
 import { TokenManager } from "./TokenManager";
 
@@ -27,11 +28,15 @@ export class Requester {
     );
   }
 
+  public getId(): number {
+    return this.id;
+  }
+
   public getRequestLimitPerSec(): number {
     return this.requestLimitPerSec;
   }
 
-  public async sendRequest(request: FtRequest) {
+  public async sendRequest(request: FtRequest<any>) {
     try {
       await request.getDataAndSaveToFile(await this.tokenManager.getToken());
     } catch (error) {
