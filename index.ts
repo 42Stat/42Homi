@@ -34,11 +34,39 @@ const func = async () => {
   // console.log(await tokenManager.getToken());
   // console.log(await tokenManager.getToken());
   const requestController = new RequestController();
-  requestController.getAll(
+  await requestController.getAll(
     RESOURCE_TYPE.USER,
     null,
     null,
     [99733, 99974, 100000]
+  );
+  await requestController.getAll(
+    RESOURCE_TYPE.COALITION_USER,
+    null,
+    null,
+    1,
+    "85"
+  );
+  await requestController.getAll(
+    RESOURCE_TYPE.COALITION_USER,
+    null,
+    null,
+    1,
+    "86"
+  );
+  await requestController.getAll(
+    RESOURCE_TYPE.COALITION_USER,
+    null,
+    null,
+    1,
+    "87"
+  );
+  await requestController.getAll(
+    RESOURCE_TYPE.COALITION_USER,
+    null,
+    null,
+    1,
+    "88"
   );
 };
 

@@ -3,9 +3,9 @@ import { FtRequest } from "./FtRequest";
 import { validateUser } from "./interface/user.interface";
 
 export class FtUserRequest<UserDto> extends FtRequest<UserDto> {
-  constructor(resource: number, queryString: string = "") {
+  constructor(entity: number, queryString: string = "") {
     super();
-    this.ftApiUrl += `users/${resource}`;
+    this.ftApiUrl += `users/${entity}`;
   }
 
   async sendRequest(token: string): Promise<Response> {

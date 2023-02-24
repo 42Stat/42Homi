@@ -1,4 +1,3 @@
-import { collapseTextChangeRangesAcrossMultipleVersions } from "typescript";
 import { logger } from "../";
 import { FTCoalitionUserRequest } from "./request/FtCoalitionUserRequest";
 import { FtRequest } from "./request/FtRequest";
@@ -68,12 +67,15 @@ export class RequestController {
 
   private createRequest(
     resourseType: ResourceType,
-    resource: number,
-    queryString: string | null
+    entity: number,
+    queryString: string | null,
+    resource: Url = ""
   ): FtRequest<any> {
     switch (resourseType) {
       case RESOURCE_TYPE.USER:
-        return new FtUserRequest(resource);
+        return new FtUserRequest(entity);
+      case RESOURCE_TYPE.COALITION_USER:
+        return new FTCoalitionUserRequest(entity, resource);
       default:
         throw Error();
     }
@@ -82,7 +84,8 @@ export class RequestController {
   private createRequests(
     resourseType: ResourceType,
     queryString: string | null = null,
-    range: RangeType = 1
+    range: RangeType = 1,
+    resource: Url = ""
   ) {
     const requestQueue: FtRequest<any>[] = [];
     // TODO: Create request class
@@ -109,7 +112,7 @@ export class RequestController {
     let requestIndex = 0;
     mainLoop: while (true) {
       for (const requester of this.requesterList) {
-        console.log(requester.getId());
+        // console.log(requester.getId());
         const requestLimitPerSec = requester.getRequestLimitPerSec();
         for (let index = 0; index < requestLimitPerSec; index++) {
           const request = queue[requestIndex++];
@@ -153,8 +156,8 @@ export class RequestController {
     filterMap: FilterMap | null = null,
     sortList: SortList | null = null,
     range: RangeType = 1,
-    resource: string = ""
-  ) {
+    resource: Url = ""
+  ): Promise<void> {
     const queryString = this.getOptionQueryString(filterMap, sortList);
     // TODO: Implement Queue
     const requestQueue: FtRequest<any>[] = [];
@@ -176,7 +179,7 @@ export class RequestController {
       // When specific entities are provided
       // Put all requests in queue
       requestQueue.push(
-        ...this.createRequests(resourseType, queryString, range)
+        ...this.createRequests(resourseType, queryString, range, resource)
       );
       await sendAllRequestsInQueue();
     } else {
@@ -185,9 +188,10 @@ export class RequestController {
       let isVisitedEndPage = false;
 
       while (true) {
+        console.log("page: " + page);
         // Put limited requests in queue(to find end page)
         requestQueue.push(
-          ...this.createRequests(resourseType, queryString, page)
+          ...this.createRequests(resourseType, queryString, page, resource)
         );
         await sendAllRequestsInQueue();
 
@@ -195,5 +199,6 @@ export class RequestController {
         page += this.requestCountPerLoop;
       }
     }
+    return;
   }
 }
