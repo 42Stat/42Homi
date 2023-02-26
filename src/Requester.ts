@@ -36,9 +36,12 @@ export class Requester {
     return this.requestLimitPerSec;
   }
 
-  public async sendRequest(request: FtRequest<any>) {
+  public async sendRequest(request: FtRequest<any>): Promise<boolean> {
     try {
-      await request.getDataAndSaveToFile(await this.tokenManager.getToken());
+      const isVisitedEndPage = await request.getDataAndSaveToFile(
+        await this.tokenManager.getToken()
+      );
+      return isVisitedEndPage;
     } catch (error) {
       throw error;
     }

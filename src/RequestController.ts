@@ -75,7 +75,7 @@ export class RequestController {
       case RESOURCE_TYPE.USER:
         return new FtUserRequest(entity);
       case RESOURCE_TYPE.COALITION_USER:
-        return new FTCoalitionUserRequest(entity, resource);
+        return new FTCoalitionUserRequest(entity, resource, queryString);
       default:
         throw Error();
     }
@@ -111,30 +111,38 @@ export class RequestController {
   ) {
     let requestIndex = 0;
     mainLoop: while (true) {
+      // Iterate all requesters(=API apps)
       for (const requester of this.requesterList) {
-        // console.log(requester.getId());
         const requestLimitPerSec = requester.getRequestLimitPerSec();
         for (let index = 0; index < requestLimitPerSec; index++) {
           const request = queue[requestIndex++];
           if (request === undefined) break mainLoop;
           console.log("req: " + Date.now());
-          promises.push(requester.sendRequest(request));
+          try {
+            promises.push(requester.sendRequest(request));
+          } catch (error) {
+            console.log("여기서 캐치" + error);
+          }
         }
       }
       await this.delay(this.delaySecPerRequest * 1000);
     }
+    await Promise.allSettled(promises);
     queue.splice(0, queue.length);
     return promises;
   }
 
-  private async storeRejectedRequestsInRetryQueue(
+  private async checkResponse(
     promises: Promise<unknown>[],
     queue: FtRequest<any>[]
   ) {
+    let isVisitedEndPage = false;
     await Promise.allSettled(promises).then((results) => {
       for (const result of results) {
         // console.log(result);
-        if (result.status === "rejected") {
+        if (result.status === "fulfilled") {
+          if (result.value === true) isVisitedEndPage = true;
+        } else if (result.status === "rejected") {
           const request = result.reason;
           if (request.getRetryCount() < this.maxRetryCountPerRequest) {
             queue.push(request);
@@ -147,6 +155,7 @@ export class RequestController {
       }
     });
     promises.splice(0, promises.length);
+    return isVisitedEndPage;
   }
 
   public async getOne(resourseType: ResourceType, resource: Url) {}
@@ -163,15 +172,20 @@ export class RequestController {
     const requestQueue: FtRequest<any>[] = [];
     const retryQueue: FtRequest<any>[] = [];
     const promises: Promise<unknown>[] = [];
+    let isVisitedEndPage = false;
 
     const sendAllRequestsInQueue = async () => {
       await this.sendRequestsLoop(requestQueue, promises);
-      await this.storeRejectedRequestsInRetryQueue(promises, retryQueue);
+      if ((await this.checkResponse(promises, retryQueue)) == true)
+        isVisitedEndPage = true;
+
+      console.log(promises);
 
       // Retry failed requests(MAX_RETRY_COUNT_PER_REQUEST is in .env)
       while (retryQueue.length > 0) {
         await this.sendRequestsLoop(retryQueue, promises);
-        await this.storeRejectedRequestsInRetryQueue(promises, retryQueue);
+        if ((await this.checkResponse(promises, retryQueue)) == true)
+          isVisitedEndPage = true;
       }
     };
 
@@ -185,10 +199,10 @@ export class RequestController {
     } else {
       // When page is provided
       let page = range;
-      let isVisitedEndPage = false;
 
       while (true) {
         console.log("page: " + page);
+        await this.delay(100);
         // Put limited requests in queue(to find end page)
         requestQueue.push(
           ...this.createRequests(resourseType, queryString, page, resource)

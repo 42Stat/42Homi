@@ -32,4 +32,10 @@ const coalitionUserSchema: JSONSchemaType<CoalitionUserDto> = {
   additionalProperties: true,
 };
 
+const coalitionUsersSchema: JSONSchemaType<CoalitionUserDto[]> = {
+  type: "array",
+  items: coalitionUserSchema,
+};
+
 export const validateCoalitionUser = ajv.compile(coalitionUserSchema);
+export const validateCoalitionUsers = ajv.compile(coalitionUsersSchema);

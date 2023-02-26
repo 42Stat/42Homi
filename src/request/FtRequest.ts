@@ -15,9 +15,7 @@ export abstract class FtRequest<T> {
     return this.retryCount;
   }
 
-  public async getDataAndSaveToFile(
-    token: string
-  ): Promise<FtRequest<T> | boolean> {
+  public async getDataAndSaveToFile(token: string): Promise<boolean> {
     try {
       let isEndPage = false;
       const data = await this.sendRequest(token);
