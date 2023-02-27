@@ -45,7 +45,6 @@ export class Requester {
     delay: number
   ): Promise<boolean> {
     await this.wait(delay);
-    console.log(Date.now() + request.getFtApiUrl());
     try {
       const isVisitedEndPage = await request.getDataAndSaveToFile(
         await this.tokenManager.getToken()

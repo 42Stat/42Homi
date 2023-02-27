@@ -124,7 +124,6 @@ export class RequestController {
       // Iterate all requesters(=API apps)
       for (const requester of this.requesterList) {
         const requestLimitPerSec = requester.getRequestLimitPerSec();
-        console.log(requestLimitPerSec);
         for (let index = 0; index < requestLimitPerSec; index++) {
           if (requestIndex >= queue.length) break;
           console.log(
@@ -142,7 +141,6 @@ export class RequestController {
       }
       iterationCount++;
     }
-    console.log(Date.now());
     for (const requestInfo of requestInfoQueue) {
       const { requester, request, delay } = requestInfo;
       promises.push(requester.sendRequest(request, delay));
@@ -158,7 +156,6 @@ export class RequestController {
     let isVisitedEndPage = false;
     await Promise.allSettled(promises).then((results) => {
       for (const result of results) {
-        // console.log(result);
         if (result.status === "fulfilled") {
           if (result.value === true) isVisitedEndPage = true;
         } else if (result.status === "rejected") {
