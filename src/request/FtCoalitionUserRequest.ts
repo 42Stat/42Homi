@@ -14,11 +14,10 @@ export class FTCoalitionUserRequest<CoalitionUserDto> extends FtRequest<
     queryString: string | null = null
   ) {
     super();
-    this.ftApiUrl += `coalitions/${entity}/users${queryString}${entity}`;
+    this.ftApiUrl += `coalitions/${resource}/users${queryString}${entity}`;
   }
 
   public async sendRequest(token: string): Promise<any> {
-    console.log("sendRequest: ", this.ftApiUrl);
     try {
       const response = await fetch(this.ftApiUrl, {
         method: "GET",

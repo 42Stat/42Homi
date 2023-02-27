@@ -11,6 +11,10 @@ export abstract class FtRequest<T> {
 
   constructor() {}
 
+  public getFtApiUrl(): string {
+    return this.ftApiUrl;
+  }
+
   public getRetryCount(): number {
     return this.retryCount;
   }
@@ -19,7 +23,7 @@ export abstract class FtRequest<T> {
     try {
       let isEndPage = false;
       const data = await this.sendRequest(token);
-      console.log(data.id);
+      console.log(data.id ?? data.length);
       await this.saveToFile(await this.validate(data));
 
       if (Array.isArray(data) && data.length === 0) isEndPage = true;

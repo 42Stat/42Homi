@@ -28,6 +28,10 @@ export class Requester {
     );
   }
 
+  private wait(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   public getId(): number {
     return this.id;
   }
@@ -36,7 +40,12 @@ export class Requester {
     return this.requestLimitPerSec;
   }
 
-  public async sendRequest(request: FtRequest<any>): Promise<boolean> {
+  public async sendRequest(
+    request: FtRequest<any>,
+    delay: number
+  ): Promise<boolean> {
+    await this.wait(delay);
+    console.log(Date.now() + request.getFtApiUrl());
     try {
       const isVisitedEndPage = await request.getDataAndSaveToFile(
         await this.tokenManager.getToken()

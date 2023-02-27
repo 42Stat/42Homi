@@ -1,3 +1,4 @@
+import { createImportSpecifier } from "typescript";
 import { logger } from "../";
 import { FTCoalitionUserRequest } from "./request/FtCoalitionUserRequest";
 import { FtRequest } from "./request/FtRequest";
@@ -45,7 +46,7 @@ export class RequestController {
     }
   }
 
-  private delay(ms: number) {
+  private wait(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
@@ -93,13 +94,15 @@ export class RequestController {
       // Get specific entities
       for (const entity of range) {
         requestQueue.push(
-          this.createRequest(resourseType, entity, queryString)
+          this.createRequest(resourseType, entity, queryString, resource)
         );
       }
     } else {
       // Get all entities
       for (let idx = range; idx < range + this.requestCountPerLoop; idx++) {
-        requestQueue.push(this.createRequest(resourseType, idx, queryString));
+        requestQueue.push(
+          this.createRequest(resourseType, idx, queryString, resource)
+        );
       }
     }
     return requestQueue;
@@ -109,25 +112,41 @@ export class RequestController {
     queue: FtRequest<any>[],
     promises: Promise<unknown>[]
   ) {
+    interface RequestInfo {
+      requester: Requester;
+      request: FtRequest<any>;
+      delay: number;
+    }
+    const requestInfoQueue: RequestInfo[] = [];
     let requestIndex = 0;
-    mainLoop: while (true) {
+    let iterationCount = 0;
+    while (requestInfoQueue.length < queue.length) {
       // Iterate all requesters(=API apps)
       for (const requester of this.requesterList) {
         const requestLimitPerSec = requester.getRequestLimitPerSec();
+        console.log(requestLimitPerSec);
         for (let index = 0; index < requestLimitPerSec; index++) {
-          const request = queue[requestIndex++];
-          if (request === undefined) break mainLoop;
-          console.log("req: " + Date.now());
-          try {
-            promises.push(requester.sendRequest(request));
-          } catch (error) {
-            console.log("여기서 캐치" + error);
-          }
+          if (requestIndex >= queue.length) break;
+          console.log(
+            "time: ",
+            iterationCount * this.delaySecPerRequest * 1000,
+            " iterate: ",
+            iterationCount
+          );
+          requestInfoQueue.push({
+            requester: requester,
+            request: queue[requestIndex++],
+            delay: iterationCount * this.delaySecPerRequest * 1000,
+          });
         }
       }
-      await this.delay(this.delaySecPerRequest * 1000);
+      iterationCount++;
     }
-    await Promise.allSettled(promises);
+    console.log(Date.now());
+    for (const requestInfo of requestInfoQueue) {
+      const { requester, request, delay } = requestInfo;
+      promises.push(requester.sendRequest(request, delay));
+    }
     queue.splice(0, queue.length);
     return promises;
   }
@@ -143,7 +162,9 @@ export class RequestController {
         if (result.status === "fulfilled") {
           if (result.value === true) isVisitedEndPage = true;
         } else if (result.status === "rejected") {
-          const request = result.reason;
+          console.log(result.reason);
+          const request: FtRequest<unknown> = result.reason;
+          console.log(request);
           if (request.getRetryCount() < this.maxRetryCountPerRequest) {
             queue.push(request);
             console.log("error", request);
@@ -155,6 +176,7 @@ export class RequestController {
       }
     });
     promises.splice(0, promises.length);
+    await this.wait(1000);
     return isVisitedEndPage;
   }
 
@@ -202,7 +224,7 @@ export class RequestController {
 
       while (true) {
         console.log("page: " + page);
-        await this.delay(100);
+        await this.wait(100);
         // Put limited requests in queue(to find end page)
         requestQueue.push(
           ...this.createRequests(resourseType, queryString, page, resource)
