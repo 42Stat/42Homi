@@ -159,12 +159,12 @@ export class RequestController {
         if (result.status === "fulfilled") {
           if (result.value === true) isVisitedEndPage = true;
         } else if (result.status === "rejected") {
-          console.log(result.reason);
+          // console.log(result.reason);
           const request: FtRequest<unknown> = result.reason;
           console.log(request);
           if (request.getRetryCount() < this.maxRetryCountPerRequest) {
             queue.push(request);
-            console.log("error", request);
+            logger.log("error", request);
           } else {
             // TODO: Logging failed request
             logger.log("warn", request);
